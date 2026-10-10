@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0702">
+<meta name="description" content="ZAINAB — جزيئات صفراء وبيضاء تتجمع لتكتب الاسم داخل قلب ينبض">
+<title>ZAINAB Heart</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@500&family=Montserrat:wght@900&display=swap">
+<style>
+  /* Layout: one full-bleed night stage. Glow sits behind the heart, particles live on the canvas, a small control pill sits at the bottom. */
+  :root{
+    color-scheme:dark;
+    --night:#0a0702;
+    --night-2:#1d1405;
+    --violet:#facc15;
+    --lilac:#fff6d6;
+    --white:#ffffff;
+    --deep-rgb:146 84 10;
+    --violet-rgb:250 204 21;
+    --orchid-rgb:245 158 11;
+    --iris-rgb:253 224 71;
+    --lilac-rgb:255 246 214;
+    --font-ui:"Cairo","Segoe UI",Tahoma,"Noto Sans Arabic",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    height:100%;margin:0;overflow:hidden;
+    background:var(--night);color:var(--white);
+    -webkit-tap-highlight-color:transparent;
+  }
+  body{font-family:var(--font-ui)}
+
+  /* الخلفية: بنفسجي عميق + هالات ناعمة */
+  .bg{
+    position:fixed;inset:0;z-index:0;
+    background:
+      radial-gradient(70vmax 70vmax at 12% 8%,  rgb(var(--deep-rgb) / .30), transparent 62%),
+      radial-gradient(60vmax 60vmax at 92% 90%, rgb(var(--orchid-rgb) / .22), transparent 62%),
+      radial-gradient(90vmax 90vmax at 50% 50%, var(--night-2) 0%, var(--night) 72%);
+  }
+  .bg::after{
+    content:"";position:absolute;inset:-20%;
+    background:
+      radial-gradient(40vmax 40vmax at 30% 70%, rgb(var(--violet-rgb) / .16), transparent 65%),
+      radial-gradient(35vmax 35vmax at 75% 25%, rgb(var(--iris-rgb) / .12), transparent 65%);
+    animation:float 22s ease-in-out infinite alternate;
+    will-change:transform;
+  }
+  @keyframes float{to{transform:translate3d(6%,-4%,0) scale(1.08)}}
+  @media (prefers-reduced-motion:reduce){ .bg::after{animation:none} }
+
+  /* توهج خلف القلب وخلف الاسم (يتحرك من الجافاسكربت) */
+  .glow{
+    position:fixed;left:0;top:0;border-radius:50%;pointer-events:none;z-index:1;
+    opacity:0;will-change:transform,opacity;
+  }
+  #heartGlow{background:radial-gradient(closest-side, rgb(var(--violet-rgb) / .55), rgb(217 119 6 / .22) 48%, rgb(217 119 6 / 0) 72%)}
+  #textGlow {background:radial-gradient(closest-side, rgb(var(--lilac-rgb) / .42), rgb(var(--orchid-rgb) / .16) 50%, rgb(var(--orchid-rgb) / 0) 75%)}
+
+  canvas{
+    position:fixed;inset:0;width:100%;height:100%;z-index:2;display:block;
+    touch-action:none;
+  }
+
+  /* واجهة صغيرة بالأسفل */
+  .ui{
+    position:fixed;left:0;right:0;z-index:3;
+    bottom:0;padding:0 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    display:flex;flex-direction:column;align-items:center;gap:12px;
+    pointer-events:none;
+  }
+  @media (max-height:520px){
+    .ui{left:auto;right:max(16px, env(safe-area-inset-right, 0px));align-items:flex-end}
+  }
+  #hint{
+    font-size:13px;letter-spacing:.2px;color:rgb(var(--lilac-rgb) / .62);
+    transition:opacity 1.2s ease;text-align:center;
+  }
+  #replay{
+    pointer-events:auto;cursor:pointer;
+    font:inherit;font-size:14px;color:var(--lilac);
+    padding:10px 22px;border-radius:999px;
+    border:1px solid rgb(255 222 120 / .45);
+    background:rgb(var(--violet-rgb) / .14);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    box-shadow:0 0 22px rgb(var(--violet-rgb) / .22), inset 0 0 12px rgb(255 222 120 / .10);
+    transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  #replay:hover{background:rgb(var(--violet-rgb) / .26);box-shadow:0 0 30px rgb(var(--orchid-rgb) / .45), inset 0 0 14px rgb(255 222 120 / .16)}
+  #replay:active{transform:scale(.96)}
+  #replay:focus-visible{outline:2px solid var(--white);outline-offset:3px}
+
+  .nojs{
+    display:none;position:fixed;inset:0;z-index:5;
+    align-items:center;justify-content:center;
+    padding:24px 28px;text-align:center;
+    font-size:17px;line-height:1.95;color:var(--lilac);
+  }
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+<noscript><style>.ui{display:none}.nojs{display:flex}</style></noscript>
+</head>
+<body>
+<h1 class="sr">ZAINAB</h1>
+<div class="nojs" dir="rtl"><p>هذه الصفحة تحتاج JavaScript حتى تشتغل الحركة.<br>افتح الملف من متصفح Safari أو Chrome، أو ارفعه على موقع.<br>معاينة الملفات داخل الآيفون تمنع تشغيلها.</p></div>
+<div class="bg"></div>
+<div class="glow" id="heartGlow"></div>
+<div class="glow" id="textGlow"></div>
+<canvas id="c" aria-label="ZAINAB مكتوب بالجزيئات داخل قلب" role="img"></canvas>
+<div class="ui" dir="rtl">
+  <span id="hint">المس الشاشة ✨</span>
+  <button id="replay" type="button">↻ إعادة العرض</button>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   ZAINAB ♥  —  جزيئات تتجمع وتكتب الاسم داخل قلب
+   ---------------------------------------------------------------------
+   المراحل:
+     1) جزيئات مبعثرة تتلألأ على الشاشة
+     2) تتجمع في سحابة دوّارة في المنتصف
+     3) تنفتح السحابة وترسم القلب (من الأسفل إلى الأعلى)
+     4) جزيئات الاسم تطير داخل القلب وتكتب ZAINAB حرفاً بحرف
+     5) القلب ينبض، والجزيئات تتفاعل مع الماوس / اللمس
+   لتغيير الاسم: عدّل المتغير TEXT. للألوان: عدّل COLORS_* بالأسفل.
+   ===================================================================== */
+
+const TEXT = 'ZAINAB';
+const FONT_FAMILY = '"Montserrat","Arial Black","Segoe UI Black","Helvetica Neue",Impact,Roboto,Arial,sans-serif';
+
+/* ---------- أدوات ---------- */
+const rand = Math.random;
+const clamp   = (x,a,b) => x < a ? a : x > b ? b : x;
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const ease    = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3) / 2;   // easeInOutCubic
+const smooth  = x => { x = clamp01(x); return x*x*(3 - 2*x); };
+const gauss   = () => clamp((rand()+rand()+rand()+rand()-2) / 0.577, -2.4, 2.4);
+
+/* ---------- المخطط الزمني (بالثواني) ---------- */
+const T = {
+  g0: 1.1,  gd: 2.4,  gSpread: 0.9,    // التجمع في السحابة
+  f0: 4.1,  fd: 2.3,  fSpread: 1.3,    // تشكّل القلب
+  t0: 6.1,  td: 1.9,  tSpread: 1.3,   // كتابة الاسم
+  done: 10.0,                           // اكتمل كل شيء
+  exit: 1.0                            // مدة التفتت عند الإعادة
+};
+
+/* ---------- الألوان: بنفسجي + أبيض ---------- */
+function hsl(h,s,l){
+  s/=100; l/=100;
+  const k = n => (n + h/30) % 12, a = s*Math.min(l,1-l);
+  const f = n => l - a*Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n),1)));
+  return [Math.round(255*f(0)), Math.round(255*f(8)), Math.round(255*f(4))];
+}
+const COLORS_WHITE = [
+  [255,255,255],[255,255,255],[255,252,245],[255,248,230],[255,243,214],[255,250,238]
+];
+const COLORS_PURPLE = [];                           // (الاسم قديم) هذي الآن درجات الأصفر
+for (let i = 0; i < 30; i++){
+  const h = 38 + (i/29)*20;                        // 38°..58° من العنبري الذهبي إلى الليموني
+  const l = [52,58,62,68,74,80][i % 6];
+  const s = 88 + (i*5 % 13);
+  COLORS_PURPLE.push(hsl(h, s, l));
+}
+COLORS_PURPLE.push([255,200,0],[250,204,21],[253,224,71],[255,214,10],[245,166,35],[255,236,130]);
+
+/* ---------- الجزيء: نجمة رباعية متوهجة (مثل نجوم الفيديو) ---------- */
+function makeSprite(rgb){
+  const S = 64, c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  const [r,gr,b] = rgb;
+  const col = a => `rgba(${r},${gr},${b},${a})`;
+  const mix = (k,a) => `rgba(${Math.round(r+(255-r)*k)},${Math.round(gr+(255-gr)*k)},${Math.round(b+(255-b)*k)},${a})`;
+
+  // هالة ناعمة
+  let rg = g.createRadialGradient(32,32,0, 32,32,30);
+  rg.addColorStop(0,    col(.62));
+  rg.addColorStop(.30,  col(.26));
+  rg.addColorStop(1,    col(0));
+  g.fillStyle = rg; g.fillRect(0,0,S,S);
+
+  // أشعة النجمة (4 رئيسية + 4 قصيرة قطرية)
+  const star = () => {
+    g.beginPath();
+    g.moveTo(32,2);  g.quadraticCurveTo(34,30, 62,32);
+    g.quadraticCurveTo(34,34, 32,62);
+    g.quadraticCurveTo(30,34, 2,32);
+    g.quadraticCurveTo(30,30, 32,2);
+    g.closePath(); g.fill();
+  };
+  g.fillStyle = mix(.12, .95); star();
+  g.save(); g.translate(32,32); g.rotate(Math.PI/4); g.scale(.5,.5); g.translate(-32,-32);
+  g.fillStyle = mix(.1, .75); star(); g.restore();
+
+  // نواة مضيئة
+  rg = g.createRadialGradient(32,32,0, 32,32,10);
+  rg.addColorStop(0,   mix(.78, 1));
+  rg.addColorStop(.55, mix(.35, .75));
+  rg.addColorStop(1,   col(0));
+  g.fillStyle = rg; g.beginPath(); g.arc(32,32,10,0,Math.PI*2); g.fill();
+  return c;
+}
+const SPR_WHITE  = COLORS_WHITE.map(makeSprite);
+const SPR_PURPLE = COLORS_PURPLE.map(makeSprite);
+const sprites = SPR_WHITE.concat(SPR_PURPLE);
+const nW = SPR_WHITE.length, nP = SPR_PURPLE.length;
+// كل جزيء ياخذ لونه الخاص: whiteBias = احتمال أن يكون أبيض
+const pickSprite = whiteBias => rand() < whiteBias ? (rand()*nW | 0) : nW + (rand()*nP | 0);
+
+/* ---------- منحنى القلب (موزّع بالتساوي على طول المحيط) ---------- */
+const HU_MIN = -17, HU_MAX = 11.923, HU_H = HU_MAX - HU_MIN, HU_MID = (HU_MAX + HU_MIN)/2;
+const M = 900;
+const HX = new Float32Array(M), HY = new Float32Array(M), NX = new Float32Array(M), NY = new Float32Array(M);
+let HEART_LEN = 0;
+(() => {
+  const N = 4000, xs = new Float32Array(N+1), ys = new Float32Array(N+1), ls = new Float32Array(N+1);
+  for (let i = 0; i <= N; i++){
+    const t = i/N*Math.PI*2;
+    xs[i] = 16*Math.pow(Math.sin(t),3);
+    ys[i] = 13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t);
+    if (i) ls[i] = ls[i-1] + Math.hypot(xs[i]-xs[i-1], ys[i]-ys[i-1]);
+  }
+  HEART_LEN = ls[N];
+  let j = 0;
+  for (let k = 0; k < M; k++){
+    const target = k/M*HEART_LEN;
+    while (j < N-1 && ls[j+1] < target) j++;
+    const seg = ls[j+1]-ls[j] || 1, f = (target-ls[j])/seg;
+    HX[k] = xs[j] + (xs[j+1]-xs[j])*f;
+    HY[k] = ys[j] + (ys[j+1]-ys[j])*f;
+  }
+  for (let k = 0; k < M; k++){
+    const a = (k+M-1)%M, b = (k+1)%M;
+    let tx = HX[b]-HX[a], ty = HY[b]-HY[a];
+    const l = Math.hypot(tx,ty) || 1; tx/=l; ty/=l;
+    NX[k] = -ty; NY[k] = tx;
+  }
+})();
+
+/* ---------- أكبر مستطيل يتسع داخل القلب (يعتمد على طول الاسم) ---------- */
+const GRS = 0.4, GX0 = -17, GY0 = -18;
+const GW = Math.ceil(34/GRS) + 1, GH = Math.ceil(31/GRS) + 1;
+const CLEAR = new Float32Array(GW*GH);     // المسافة عن حدود القلب (0 خارجه)
+(() => {
+  for (let gy = 0; gy < GH; gy++){
+    const py = GY0 + gy*GRS;
+    for (let gx = 0; gx < GW; gx++){
+      const px = GX0 + gx*GRS;
+      let inside = false;
+      for (let i = 0, j = M-1; i < M; j = i++){
+        if ((HY[i] > py) !== (HY[j] > py) &&
+            px < (HX[j]-HX[i])*(py-HY[i])/(HY[j]-HY[i]) + HX[i]) inside = !inside;
+      }
+      if (!inside) continue;
+      let best = 1e9;
+      for (let k = 0; k < M; k += 3){
+        const dx = px-HX[k], dy = py-HY[k], d = dx*dx + dy*dy;
+        if (d < best) best = d;
+      }
+      CLEAR[gy*GW+gx] = Math.sqrt(best);
+    }
+  }
+})();
+function clearAt(x, y){
+  const gx = Math.round((x-GX0)/GRS), gy = Math.round((y-GY0)/GRS);
+  return (gx < 0 || gy < 0 || gx >= GW || gy >= GH) ? 0 : CLEAR[gy*GW+gx];
+}
+function boxFits(w, h, yc, margin){
+  const nx = Math.max(2, Math.ceil(w/GRS));
+  for (let i = 0; i <= nx; i++){
+    const x = -w/2 + w*i/nx;
+    if (clearAt(x, yc-h/2) < margin || clearAt(x, yc) < margin || clearAt(x, yc+h/2) < margin) return false;
+  }
+  return true;
+}
+function fitBox(AR, margin){
+  let best = null;
+  for (let yc = -7; yc <= 7; yc += GRS){
+    for (let w = 30; w >= 8; w -= GRS){
+      if (boxFits(w, w/AR, yc, margin)){
+        if (!best || w > best.w + 1e-6) best = { w, h: w/AR, yc };
+        break;
+      }
+    }
+  }
+  return best;
+}
+function textAspect(){
+  const probe = document.createElement('canvas').getContext('2d');
+  probe.font = `900 100px ${FONT_FAMILY}`;
+  const letters = [...TEXT];
+  const total = letters.reduce((a,c) => a + probe.measureText(c).width, 0) + 100*0.075*(letters.length-1);
+  const cap = probe.measureText('H').actualBoundingBoxAscent || 72;
+  return total/cap;
+}
+
+/* ---------- الكانفس ---------- */
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const heartGlow = document.getElementById('heartGlow');
+const textGlow  = document.getElementById('textGlow');
+const btn  = document.getElementById('replay');
+const hint = document.getElementById('hint');
+
+let W = 0, H = 0, dpr = 1;
+let hcx = 0, hcy = 0, S = 1;          // مركز القلب + مقياس الوحدة
+let ccx = 0, ccy = 0;                 // مركز السحابة
+let tcy = 0, textW = 0, baseK = 7;
+const parts = [];
+
+/* ---------- اخذ نقاط الاسم من الخط ---------- */
+function makeTextPoints(tw, th, tb){
+  const pad = 10, gapK = 0.075;
+  const probe = document.createElement('canvas').getContext('2d');
+  probe.font = `900 100px ${FONT_FAMILY}`;
+  const letters = [...TEXT];
+  let total100 = letters.reduce((a,c) => a + probe.measureText(c).width, 0) + 100*gapK*(letters.length-1);
+  let fs = 100*tw/total100;
+  probe.font = `900 ${fs}px ${FONT_FAMILY}`;
+  let capH = probe.measureText('H').actualBoundingBoxAscent || fs*0.72;
+  if (capH > th){ fs *= th/capH; capH = th; }
+  probe.font = `900 ${fs}px ${FONT_FAMILY}`;
+  const widths = letters.map(c => probe.measureText(c).width);
+  const gap = fs*gapK;
+  const total = widths.reduce((a,b) => a+b, 0) + gap*(letters.length-1);
+
+  const cw = Math.ceil(total) + pad*2, ch = Math.ceil(capH) + pad*2;
+  const oc = document.createElement('canvas'); oc.width = cw; oc.height = ch;
+  const g = oc.getContext('2d', { willReadFrequently: true });
+  g.font = `900 ${fs}px ${FONT_FAMILY}`; g.fillStyle = '#fff'; g.textBaseline = 'alphabetic';
+  let x = pad;
+  for (let i = 0; i < letters.length; i++){ g.fillText(letters[i], x, pad + capH); x += widths[i] + gap; }
+
+  const img = g.getImageData(0,0,cw,ch).data;
+  const filled = [];
+  let minX = 1e9, maxX = -1, minY = 1e9, maxY = -1;
+  for (let y = 0; y < ch; y++) for (let xx = 0; xx < cw; xx++){
+    if (img[(y*cw+xx)*4+3] > 140){
+      filled.push(xx,y);
+      if (xx<minX) minX=xx; if (xx>maxX) maxX=xx; if (y<minY) minY=y; if (y>maxY) maxY=y;
+    }
+  }
+  const bw = maxX-minX+1, bh = maxY-minY+1;
+  const sc = clamp(tw/bw, .8, 1.25);
+  const mx = (minX+maxX)/2, my = (minY+maxY)/2;
+  const area = filled.length/2;
+
+  const N = clamp(Math.round(area*sc*sc / (tb*tb*0.42)), 360, 900);
+  const stride = Math.max(1.2, Math.sqrt(area/N));
+  const pts = [];
+  const alphaAt = (px,py) => {
+    px |= 0; py |= 0;
+    return (px<0||py<0||px>=cw||py>=ch) ? 0 : img[(py*cw+px)*4+3];
+  };
+  for (let gy = minY; gy <= maxY; gy += stride)
+    for (let gx = minX; gx <= maxX; gx += stride){
+      const jx = gx + (rand()-.5)*stride*.8, jy = gy + (rand()-.5)*stride*.8;
+      if (alphaAt(jx,jy) > 120) pts.push([jx,jy]);
+    }
+  // نضبط العدد بالضبط على N
+  while (pts.length > N) pts.splice(rand()*pts.length | 0, 1);
+  while (pts.length < N){
+    const k = (rand()*area | 0)*2;
+    pts.push([filled[k] + rand(), filled[k+1] + rand()]);
+  }
+  return pts.map(([px,py]) => ({ x:(px-mx)*sc, y:(py-my)*sc, xn:(px-minX)/bw }));
+}
+
+/* ---------- بناء الجزيئات ---------- */
+function newP(kind){
+  return { kind, sx:0, sy:0, da:0, df:0, dph:0, vyD:0,
+           cx:0, cy:0, spin:0, tx:0, ty:0, dg:0, f0:0, fd:0, swirl:0,
+           sp:0, size:1, a:1, ts:1, ph:0, appear:0,
+           fl:0, fph:0, fa:0, ex:0, ox:0, oy:0, vx:0, vy:0 };
+}
+function scatter(p){
+  p.sx = rand()*W; p.sy = rand()*H;
+  p.da = 3 + rand()*9; p.df = .35 + rand()*.9; p.dph = rand()*6.283;
+  p.appear = rand()*1.1;
+}
+
+function build(){
+  const bottom = H < 520 ? 14 : Math.min(96, H*.13), topPad = H*.04;
+  const availH = H - bottom - topPad;
+  S = Math.min((W*.9)/32, (availH*.96)/HU_H, 30);
+  hcx = W/2; hcy = topPad + availH/2;
+  ccx = hcx; ccy = hcy;
+  baseK = clamp(S*.36, 5.5, 13);
+
+  const toY = y => hcy - (y - HU_MID)*S;
+  parts.length = 0;
+
+  /* القلب */
+  const NH = clamp(Math.round(HEART_LEN*S / (baseK*.55)), 380, 780);
+  const sigma = S*.26;
+  for (let i = 0; i < NH; i++){
+    const idx = Math.floor(((i + rand())/NH) * M) % M;
+    const j = gauss()*sigma;
+    const p = newP(0);
+    p.tx = hcx + HX[idx]*S + NX[idx]*j;
+    p.ty = toY(HY[idx]) - NY[idx]*j;
+    const rel = (HY[idx]-HU_MIN)/HU_H;                  // 0 = أسفل القلب
+    p.f0 = T.f0 + rel*T.fSpread + rand()*.35;
+    p.fd = T.fd*(.85 + rand()*.3);
+    p.sp = pickSprite(.26);
+    p.size = baseK*(1.15 + rand()*.95);
+    p.a = .72 + rand()*.28;
+    p.fa = S*.05;
+    scatter(p); parts.push(p);
+  }
+  /* هالة خفيفة خارج القلب */
+  const NHL = clamp(Math.round(NH*.2), 70, 150);
+  for (let i = 0; i < NHL; i++){
+    const idx = rand()*M | 0, k = 1.1 + rand()*.12, j = gauss()*S*.45;
+    const p = newP(2);
+    p.tx = hcx + HX[idx]*S*k + NX[idx]*j;
+    p.ty = hcy - ((HY[idx]-HU_MID)*k)*S - NY[idx]*j;
+    p.f0 = T.f0 + .7 + rand()*(T.fSpread+.9);
+    p.fd = T.fd*(.9 + rand()*.4);
+    p.sp = pickSprite(.2);
+    p.size = baseK*(.6 + rand()*.55);
+    p.a = .35 + rand()*.3;
+    p.fa = S*.12;
+    scatter(p); parts.push(p);
+  }
+  /* الاسم */
+  const box = fitBox(textAspect(), 2.5) || { w: 16, h: 16/3.7, yc: 0 };
+  textW = box.w*S*.98;
+  const tH = box.h*S*.98;
+  tcy = toY(box.yc);
+  const tb = baseK*clamp(box.h/5.07, .78, 1);         // اسم أطول = حروف أصغر = جزيئات أصغر
+  const pts = makeTextPoints(textW, tH, tb);
+  for (const q of pts){
+    const p = newP(1);
+    p.tx = hcx + q.x; p.ty = tcy + q.y;
+    p.f0 = T.t0 + q.xn*T.tSpread + rand()*.3;           // الكتابة من اليسار لليمين
+    p.fd = T.td*(.8 + rand()*.4);
+    p.sp = pickSprite(.34);
+    p.size = tb*(.78 + rand()*.55);
+    p.a = .82 + rand()*.18;
+    p.fa = Math.max(.35, S*.018);
+    scatter(p); parts.push(p);
+  }
+  /* غبار خلفي يتحرك دائماً */
+  const ND = clamp(Math.round(W*H/9500), 60, 150);
+  for (let i = 0; i < ND; i++){
+    const p = newP(3);
+    p.sx = rand()*W; p.sy = rand()*(H+60);
+    p.da = 8 + rand()*22; p.df = .15 + rand()*.35; p.dph = rand()*6.283;
+    p.vyD = 5 + rand()*14;
+    p.sp = pickSprite(.35);
+    p.size = baseK*(.4 + rand()*.6);
+    p.a = .2 + rand()*.35;
+    p.appear = rand()*1.5;
+    parts.push(p);
+  }
+  /* خصائص مشتركة */
+  const ccR = S*5.4;
+  for (const p of parts){
+    p.ts = 1.2 + rand()*3.2; p.ph = rand()*6.283;
+    p.fl = .6 + rand()*1.4;  p.fph = rand()*6.283;
+    p.ex = rand();
+    p.dg = rand()*T.gSpread;
+    p.spin = (rand() < .5 ? -1 : 1)*(.35 + rand()*.5);
+    p.swirl = (rand()*2-1);
+    const a = rand()*6.283, r = Math.abs(gauss())*ccR*.55;
+    p.cx = Math.cos(a)*r; p.cy = Math.sin(a)*r;
+  }
+}
+
+/* ---------- حجم الشاشة ---------- */
+let lastW = 0, lastH = 0;
+function resize(forceBuild){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  if (forceBuild || W !== lastW || Math.abs(H - lastH) > 60){ build(); lastW = W; lastH = H; }
+}
+let rt = 0;
+window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => resize(false), 120); });
+
+/* ---------- التفاعل: ماوس / لمس ---------- */
+const ptr = { x:-9999, y:-9999, on:false };
+function setPtr(e){ ptr.x = e.clientX; ptr.y = e.clientY; ptr.on = true; }
+cv.addEventListener('pointermove', setPtr);
+cv.addEventListener('pointerleave', () => { ptr.on = false; });
+cv.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') ptr.on = false; });
+cv.addEventListener('pointerdown', e => {
+  setPtr(e);
+  // موجة صدمة: تدفع الجزيئات للخارج ثم ترجع
+  shock(e.clientX, e.clientY, Math.max(260, S*9));
+});
+let lastPos = null; // مواضع الجزيئات في آخر إطار (لحساب الموجة بدقة)
+function shock(mx, my, R){
+  if (!lastPos) return;
+  for (let i = 0; i < parts.length; i++){
+    const p = parts[i];
+    const dx = lastPos[i*2] - mx, dy = lastPos[i*2+1] - my;
+    const d = Math.hypot(dx,dy) + .001;
+    const f = 20*Math.exp(-d/(R*.45));
+    p.vx += dx/d*f; p.vy += dy/d*f;
+  }
+}
+
+/* ---------- النبض ---------- */
+const BEAT = 1.5;
+function pulseAt(t){
+  const b = (t % BEAT)/BEAT;
+  return Math.exp(-Math.pow((b-.07)/.05,2)) + .55*Math.exp(-Math.pow((b-.27)/.07,2));
+}
+
+/* ---------- الإطار ---------- */
+const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const qs = new URLSearchParams(location.search);
+let clock = parseFloat(qs.get('t'));
+if (!isFinite(clock)) clock = reduce ? T.done + .5 : 0;
+let exitStart = 0;           // 0 = لا يوجد تفتت جارٍ
+let last = performance.now();
+
+function drawRing(scale, alpha){
+  if (alpha < .01) return;
+  ctx.beginPath();
+  for (let k = 0; k <= M; k += 6){
+    const i = k % M;
+    const x = hcx + HX[i]*S*scale;
+    const y = hcy - ((HY[i]-HU_MID)*scale)*S;
+    k ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = `rgba(255,225,130,${alpha})`;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+}
+
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(.05, (now-last)/1000); last = now;
+  const step = clamp(dt*60, .5, 2);
+  clock += dt;
+  const t = clock;
+
+  // تفتت عند الإعادة
+  let e = 0;
+  if (exitStart){
+    e = clamp01((now-exitStart)/(T.exit*1000));
+    if (e >= 1){
+      exitStart = 0; e = 0; clock = 0;
+      for (const p of parts){ p.ox = p.oy = p.vx = p.vy = 0; if (p.kind !== 3) scatter(p); }
+      ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+      hint.style.opacity = 1;
+      return;
+    }
+  }
+
+  const ramp  = smooth((t - (T.done - .5))/1.2) * (reduce ? .25 : 1);
+  const pulse = pulseAt(t);
+  const beat  = 1 + .042*pulse*ramp;
+  const flash = t > T.done ? Math.exp(-(t-T.done)*1.7) : 0;
+
+  /* خلفية متلاشية (تترك أثراً خفيفاً للحركة) */
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = `rgba(0,0,0,${.24 + .26*ramp})`;
+  ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 1;
+
+  /* حلقات النبض */
+  if (ramp > 0){
+    const b = (t % BEAT)/BEAT;
+    if (b > .05 && b < .95){
+      const rp = (b-.05)/.9;
+      drawRing(1.02 + .5*(1-Math.pow(1-rp,3)), .26*Math.pow(1-rp,2)*ramp*(1-e));
+    }
+    if (flash > .02){
+      const fp = clamp01((t-T.done)/1.6);
+      drawRing(1.0 + 1.1*(1-Math.pow(1-fp,3)), .5*(1-fp)*(1-fp)*(1-e));
+    }
+  }
+
+  const useP = ptr.on && !exitStart;
+  const R = Math.max(70, S*4.2), R2 = R*R;
+  if (!lastPos || lastPos.length !== parts.length*2) lastPos = new Float32Array(parts.length*2);
+
+  for (let i = 0; i < parts.length; i++){
+    const p = parts[i];
+    let x, y, a = p.a;
+
+    if (p.kind === 3){
+      x = p.sx + Math.sin(t*p.df + p.dph)*p.da;
+      y = p.sy - t*p.vyD;
+      y = ((y % (H+60)) + (H+60)) % (H+60) - 30;
+    } else {
+      x = p.sx + Math.sin(t*p.df + p.dph)*p.da;
+      y = p.sy + Math.cos(t*p.df*.83 + p.dph*1.7)*p.da;
+
+      const g = ease(clamp01((t - T.g0 - p.dg)/T.gd));
+      if (g > 0){
+        // داخل السحابة نخفّف السطوع حتى لا تتحول كل الجزيئات المتراكبة إلى بقعة بيضاء
+        a *= 1 - .55*g*(1 - ease(clamp01((t - p.f0)/p.fd)));
+        const ang = t*p.spin, co = Math.cos(ang), si = Math.sin(ang);
+        x += (ccx + p.cx*co - p.cy*si - x)*g;
+        y += (ccy + p.cx*si + p.cy*co - y)*g;
+      }
+      const f = ease(clamp01((t - p.f0)/p.fd));
+      if (f > 0){
+        const dx = p.tx - x, dy = p.ty - y;
+        const len = Math.hypot(dx,dy) + .001;
+        const sw = Math.sin(f*Math.PI)*p.swirl*len*.32;
+        x += dx*f - dy/len*sw;
+        y += dy*f + dx/len*sw;
+        if (f >= 1){
+          x += Math.sin(t*p.fl + p.fph)*p.fa;
+          y += Math.cos(t*p.fl*1.13 + p.fph)*p.fa;
+        }
+        // نبض القلب
+        const k = (beat-1)*(p.kind === 1 ? .3 : 1)*f;
+        x = hcx + (x-hcx)*(1+k);
+        y = hcy + (y-hcy)*(1+k);
+      }
+    }
+
+    // تفاعل الماوس + نابض الإرجاع
+    if (useP){
+      const dx = (x+p.ox) - ptr.x, dy = (y+p.oy) - ptr.y, d2 = dx*dx + dy*dy;
+      if (d2 < R2 && d2 > .01){
+        const d = Math.sqrt(d2), f = 1 - d/R;
+        const push = f*f*2.4*step;
+        p.vx += dx/d*push; p.vy += dy/d*push;
+      }
+    }
+    p.vx += -p.ox*.055*step; p.vy += -p.oy*.055*step;
+    p.vx *= .84; p.vy *= .84;
+    p.ox += p.vx*step; p.oy += p.vy*step;
+    x += p.ox; y += p.oy;
+
+    // تفتت للخارج عند الإعادة
+    if (e > 0){
+      const dx = x-hcx, dy = y-hcy, d = Math.hypot(dx,dy) + .001;
+      const m = e*e*(160 + p.ex*520);
+      x += dx/d*m; y += dy/d*m;
+      a *= 1 - e;
+    }
+    lastPos[i*2] = x; lastPos[i*2+1] = y;
+
+    // تلألؤ
+    const tw = .72 + .28*Math.sin(t*p.ts + p.ph);
+    a *= tw * clamp01((t - p.appear)/.7);
+    if (p.kind !== 3 && p.kind !== 2) a *= 1 + .3*pulse*ramp;
+    if (a < .01 || x < -40 || x > W+40 || y < -40 || y > H+40) continue;
+    const sz = p.size*(.86 + .28*tw);
+    ctx.globalAlpha = a > 1 ? 1 : a;
+    ctx.drawImage(sprites[p.sp], x - sz/2, y - sz/2, sz, sz);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  /* توهج خلف القلب والاسم */
+  const formP = smooth((t - (T.f0+.4))/(T.done - T.f0 - .4));
+  const textP = smooth((t - T.t0)/(T.done - T.t0));
+  const hg = (.06 + .72*formP + .22*pulse*ramp + .5*flash)*(1-e);
+  const hs = S*32*1.65*(1 + .03*pulse*ramp + .12*flash);
+  heartGlow.style.opacity = hg;
+  heartGlow.style.width = heartGlow.style.height = hs + 'px';
+  heartGlow.style.transform = `translate3d(${hcx-hs/2}px,${hcy-hs/2}px,0)`;
+  const tg = (.55*textP + .16*pulse*ramp + .35*flash)*(1-e);
+  const ts = textW*1.7*(1 + .04*pulse*ramp);
+  textGlow.style.opacity = tg;
+  textGlow.style.width = textGlow.style.height = ts + 'px';
+  textGlow.style.transform = `translate3d(${hcx-ts/2}px,${tcy-ts/2}px,0)`;
+
+  if (t > 8) hint.style.opacity = t > 16 ? 0 : 1;
+}
+
+/* ---------- زر الإعادة ---------- */
+function replay(){
+  if (exitStart) return;
+  exitStart = performance.now();
+  hint.style.opacity = 0;
+}
+btn.addEventListener('click', replay);
+window.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R' || e.code === 'Space'){ e.preventDefault(); replay(); }
+});
+
+let started = false;
+function go(){
+  if (started) return;
+  started = true;
+  resize(true);
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
+try {
+  if (document.fonts && document.fonts.load){
+    Promise.race([
+      document.fonts.load('900 100px Montserrat', 'ZAINAB'),
+      new Promise(r => setTimeout(r, 1500))
+    ]).then(go, go);
+  } else go();
+} catch (err){ go(); }
+})();
+</script>
+</body>
+</html>
